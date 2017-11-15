@@ -6,5 +6,5 @@
         xmlns:local="clr-namespace:ISCP"
         mc:Ignorable="d"
         Title="Message Editor" Height="300" Width="300" Closing="Window_Closing">
-    <TextBox x:Name="message"/>
+    <TextBox x:Name="message" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
 </Window>

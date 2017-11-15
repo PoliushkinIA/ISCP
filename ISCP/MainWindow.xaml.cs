@@ -12,6 +12,10 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Drawing;
+using Microsoft.Win32;
+using System.IO;
+using System.Security.Cryptography;
 
 namespace ISCP
 {
@@ -21,11 +25,11 @@ namespace ISCP
     public partial class MainWindow : Window
     {
         EditMessageWindow editMessageWindow;
+        Bitmap bitmap;
 
         public MainWindow()
         {
             InitializeComponent();
-            editMessageWindow = new EditMessageWindow();
         }
 
         private void quit_Click(object sender, RoutedEventArgs e)
@@ -35,17 +39,21 @@ namespace ISCP
 
         private void buttonChooseSIF_Click(object sender, RoutedEventArgs e)
         {
-
+            OpenFileDialog ofd = new OpenFileDialog();
+            if (ofd.ShowDialog() == true)
+               sourceImageFileName.Text = ofd.FileName;
         }
 
         private void buttonOpenMessageText_Click(object sender, RoutedEventArgs e)
         {
-
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            if (ofd.ShowDialog() == true)
+                editMessageWindow.message.Text = File.ReadAllText(ofd.FileName, Encoding.Default);
         }
 
         private void buttonEditMessageText_Click(object sender, RoutedEventArgs e)
         {
-            editMessageWindow.Owner = this;
             editMessageWindow.Show();
         }
 
@@ -61,9 +69,69 @@ namespace ISCP
 
         private void buttonHideMessage_Click(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                bitmap = new Bitmap(sourceImageFileName.Text);
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.Show("Path entered is not valid or chosen file is not a correct image file!", "Invalid path or file", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            if (((editMessageWindow.message.Text.Length) / 16 + 1) * 128 + 8 > bitmap.Size.Height * bitmap.Size.Width)
+            {
+                MessageBox.Show("Message is too long to fit the container!", "Not enough space", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
             PassPhraseWindow passPhraseWindow = new PassPhraseWindow();
             passPhraseWindow.Owner = this;
-            passPhraseWindow.ShowDialog();
+            byte[] key = null;
+            if (passPhraseWindow.ShowDialog() == false)
+                return;
+            try
+            {
+                MD5Cng hasher = new MD5Cng();
+                key = hasher.ComputeHash(Encoding.Default.GetBytes(passPhraseWindow.password.Password));
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show("Passphrase cannot be empty!" + ex.ToString(), "Empty password", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+            byte[] encryptedMessage;
+            using (RijndaelManaged cipher = new RijndaelManaged())
+            {
+                cipher.BlockSize = 128;
+                cipher.Key = key;
+                cipher.Mode = CipherMode.ECB;
+                ICryptoTransform t = cipher.CreateEncryptor();
+
+                byte[] message = Encoding.Default.GetBytes(editMessageWindow.message.Text);
+                encryptedMessage = t.TransformFinalBlock(message, 0, message.Length);
+            }
+
+            byte[] bits = BytesToBits(encryptedMessage);
+
+            // Hiding the message in a bitmap
+            int i = 0;
+            for (int y = 0; y < bitmap.Height && i < bits.Length; y++)
+                for (int x = 0; x < bitmap.Width && i < bits.Length; x++, i++)
+                {
+                    int pixel = bitmap.GetPixel(x, y).ToArgb();
+                    pixel &= bits[i];
+                    bitmap.SetPixel(x, y, System.Drawing.Color.FromArgb(pixel));
+                }
+
+        }
+
+        private byte[] BytesToBits(byte[] input)
+        {
+            byte[] output = new byte[input.Length * 8];
+            for (int i = 0; i < output.Length; i++)
+            {
+
+            }
+            return output;
         }
 
         private void buttonGetMessage_Click(object sender, RoutedEventArgs e)
@@ -71,11 +139,28 @@ namespace ISCP
             PassPhraseWindow passPhraseWindow = new PassPhraseWindow();
             passPhraseWindow.Owner = this;
             passPhraseWindow.ShowDialog();
+
+           /* using (RijndaelManaged cipher = new RijndaelManaged())
+            {
+                cipher.BlockSize = 128;
+                cipher.Key = key;
+                cipher.Mode = CipherMode.ECB;
+                ICryptoTransform t2 = cipher.CreateDecryptor();
+
+                byte[] message = t2.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
+                MessageBox.Show(Encoding.Default.GetString(message));
+            } */
         }
 
         private void about_Click(object sender, RoutedEventArgs e)
         {
 
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            editMessageWindow = new EditMessageWindow();
+            editMessageWindow.Owner = this;
         }
     }
 }
