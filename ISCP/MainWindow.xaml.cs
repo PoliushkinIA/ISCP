@@ -26,6 +26,7 @@ namespace ISCP
     {
         EditMessageWindow editMessageWindow;
         Bitmap bitmap;
+        const uint mask = 4294967294;
 
         public MainWindow()
         {
@@ -127,9 +128,9 @@ namespace ISCP
             for (int y = 0; y < bitmap.Height && i < bits.Length; y++)
                 for (int x = 0; x < bitmap.Width && i < bits.Length; x++, i++)
                 {
-                    int pixel = bitmap.GetPixel(x, y).ToArgb();
-                    pixel = pixel & 244 + bits[i];
-                    bitmap.SetPixel(x, y, System.Drawing.Color.FromArgb(pixel));
+                    uint pixel = (uint)bitmap.GetPixel(x, y).ToArgb();
+                    pixel = (pixel & mask) + bits[i];
+                    bitmap.SetPixel(x, y, System.Drawing.Color.FromArgb((int)pixel));
                 }
 
             bitmap.Save(filename);
@@ -152,9 +153,20 @@ namespace ISCP
 
         private void buttonGetMessage_Click(object sender, RoutedEventArgs e)
         {
+            try
+            {
+                bitmap = new Bitmap(sourceImageFileName.Text);
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.Show("Path entered is not valid or chosen file is not a correct image file!", "Invalid path or file", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
+
             PassPhraseWindow passPhraseWindow = new PassPhraseWindow();
             passPhraseWindow.Owner = this;
-            passPhraseWindow.ShowDialog();
+            if (passPhraseWindow.ShowDialog() == false)
+                return;
 
            /* using (RijndaelManaged cipher = new RijndaelManaged())
             {
