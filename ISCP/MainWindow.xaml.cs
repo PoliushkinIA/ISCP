@@ -78,16 +78,25 @@ namespace ISCP
                 MessageBox.Show("Path entered is not valid or chosen file is not a correct image file!", "Invalid path or file", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
             if (((editMessageWindow.message.Text.Length) / 16 + 1) * 128 + 8 > bitmap.Size.Height * bitmap.Size.Width)
             {
                 MessageBox.Show("Message is too long to fit the container!", "Not enough space", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
             PassPhraseWindow passPhraseWindow = new PassPhraseWindow();
             passPhraseWindow.Owner = this;
-            byte[] key = null;
             if (passPhraseWindow.ShowDialog() == false)
                 return;
+
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = "Bitmap files (*.bmp)|*.bmp|All files (*.*)|*.*";
+            if (sfd.ShowDialog() == false)
+                return;
+            string filename = sfd.FileName;
+
+            byte[] key = null;
             try
             {
                 MD5Cng hasher = new MD5Cng();
@@ -98,6 +107,7 @@ namespace ISCP
                 MessageBox.Show("Passphrase cannot be empty!" + ex.ToString(), "Empty password", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
             }
+
             byte[] encryptedMessage;
             using (RijndaelManaged cipher = new RijndaelManaged())
             {
@@ -118,19 +128,25 @@ namespace ISCP
                 for (int x = 0; x < bitmap.Width && i < bits.Length; x++, i++)
                 {
                     int pixel = bitmap.GetPixel(x, y).ToArgb();
-                    pixel &= bits[i];
+                    pixel = pixel & 244 + bits[i];
                     bitmap.SetPixel(x, y, System.Drawing.Color.FromArgb(pixel));
                 }
 
+            bitmap.Save(filename);
+
+            MessageBox.Show("Message has been successfully hidden", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
         private byte[] BytesToBits(byte[] input)
         {
-            byte[] output = new byte[input.Length * 8];
-            for (int i = 0; i < output.Length; i++)
+            byte[] output = new byte[(input.Length + 1) * 8];
+            for (int i = 0; i < input.Length * 8; i++)
             {
-
+                byte current = Convert.ToByte(input[i / 8] & Convert.ToByte(Math.Pow(2, 7 - i % 8)));
+                output[i] = current == 0 ? (byte)1 : (byte)0;
             }
+            for (int i = input.Length * 8; i < (input.Length + 1) * 8; i++)
+                output[i] = 0;
             return output;
         }
 
