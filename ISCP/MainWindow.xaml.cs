@@ -140,14 +140,17 @@ namespace ISCP
 
         private byte[] BytesToBits(byte[] input)
         {
-            byte[] output = new byte[(input.Length + 1) * 8];
-            for (int i = 0; i < input.Length * 8; i++)
+            byte[] output = new byte[(input.Length + 2) * 8];
+            for (int i = 0; i < 16; i++)
             {
-                byte current = Convert.ToByte(input[i / 8] & Convert.ToByte(Math.Pow(2, 7 - i % 8)));
-                output[i] = current == 0 ? (byte)1 : (byte)0;
+                int current = input.Length & Convert.ToInt32(Math.Pow(2, 15 - i % 16));
+                output[i] = current == 0 ? (byte)0 : (byte)1;
             }
-            for (int i = input.Length * 8; i < (input.Length + 1) * 8; i++)
-                output[i] = 0;
+            for (int i = 16; i < (input.Length + 2) * 8; i++)
+            {
+                byte current = Convert.ToByte(input[(i / 8) - 2] & Convert.ToByte(Math.Pow(2, 7 - i % 8)));
+                output[i] = current == 0 ? (byte)0 : (byte)1;
+            }
             return output;
         }
 
@@ -168,16 +171,84 @@ namespace ISCP
             if (passPhraseWindow.ShowDialog() == false)
                 return;
 
-           /* using (RijndaelManaged cipher = new RijndaelManaged())
+            byte[] key = null;
+            try
             {
-                cipher.BlockSize = 128;
-                cipher.Key = key;
-                cipher.Mode = CipherMode.ECB;
-                ICryptoTransform t2 = cipher.CreateDecryptor();
+                MD5Cng hasher = new MD5Cng();
+                key = hasher.ComputeHash(Encoding.Default.GetBytes(passPhraseWindow.password.Password));
+            }
+            catch (ArgumentException ex)
+            {
+                MessageBox.Show("Passphrase cannot be empty!" + ex.ToString(), "Empty password", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
 
-                byte[] message = t2.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
-                MessageBox.Show(Encoding.Default.GetString(message));
-            } */
+            byte[] bits = new byte[bitmap.Width * bitmap.Height];
+            // Getting message from the bitmap
+            int i = 0;
+            for (int y = 0; y < bitmap.Height; y++)
+                for (int x = 0; x < bitmap.Width; x++, i++)
+                {
+                    bits[i] = (byte)(bitmap.GetPixel(x, y).ToArgb() & 1);
+                }
+
+            try
+            {
+                byte[] encryptedMessage = BitsToBytes(bits);
+
+                using (RijndaelManaged cipher = new RijndaelManaged())
+                {
+                    cipher.BlockSize = 128;
+                    cipher.Key = key;
+                    cipher.Mode = CipherMode.ECB;
+                    ICryptoTransform t = cipher.CreateDecryptor();
+
+                    try
+                    {
+                        byte[] message = t.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
+                        editMessageWindow.message.Text = Encoding.Default.GetString(message);
+                    }
+                    catch (CryptographicException)
+                    {
+                        MessageBox.Show("Unable to decrypt a message. Either a passphrase is incorrect, or message has been corrupted", "Decryption error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    }
+                }
+            }
+            catch (ArgumentException)
+            {
+                MessageBox.Show("Message has been corrupted or this image does not contain a message", "Read fail", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        private byte[] BitsToBytes(byte[] bits)
+        {
+            int length = 0;
+            for (int i = 0; i < 16; i++)
+            {
+                length <<= 1;
+                length += bits[i];
+            }
+
+            byte[] res = new byte[length];
+
+            try
+            {
+                for (int i = 0; i < length; i++)
+                {
+                    byte current = 0;
+                    for (int j = 0; j < 8; j++)
+                    {
+                        current <<= 1;
+                        current += bits[(i + 2) * 8 + j];
+                    }
+                    res[i] = current;
+                }
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw new ArgumentException();
+            }
+            return res;
         }
 
         private void about_Click(object sender, RoutedEventArgs e)
