@@ -65,7 +65,10 @@ namespace ISCP
 
         private void buttonSaveMessageText_Click(object sender, RoutedEventArgs e)
         {
-
+            SaveFileDialog sfd = new SaveFileDialog();
+            sfd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            if (sfd.ShowDialog() == true)
+                File.WriteAllText(sfd.FileName, editMessageWindow.message.Text);
         }
 
         private void buttonHideMessage_Click(object sender, RoutedEventArgs e)
