@@ -136,7 +136,7 @@ namespace ISCP
                     bitmap.SetPixel(x, y, System.Drawing.Color.FromArgb((int)pixel));
                 }
 
-            bitmap.Save(filename);
+            bitmap.Save(filename, System.Drawing.Imaging.ImageFormat.Bmp);
 
             MessageBox.Show("Message has been successfully hidden", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
