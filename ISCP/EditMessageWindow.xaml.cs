@@ -24,10 +24,14 @@ namespace ISCP
             InitializeComponent();
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        private void OK_Click(object sender, RoutedEventArgs e)
         {
-            e.Cancel = true;
-            Hide();
+            DialogResult = true;
+        }
+
+        private void Cancel_Click(object sender, RoutedEventArgs e)
+        {
+            DialogResult = false;
         }
     }
 }

@@ -5,6 +5,12 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ISCP"
         mc:Ignorable="d"
-        Title="Message Editor" Height="300" Width="300" Closing="Window_Closing">
-    <TextBox x:Name="message" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+        Title="Message Editor" Height="300" Width="300">
+    <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Orientation="Horizontal" MinHeight="30">
+            <Button x:Name="OK" Content="OK" Margin="3" MinWidth="65" Click="OK_Click"/>
+            <Button x:Name="Cancel" Content="Cancel" Margin="3" MinWidth="65" Click="Cancel_Click"/>
+        </StackPanel>
+        <TextBox x:Name="message" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto" Margin="3"/>
+    </DockPanel>
 </Window>

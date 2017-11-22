@@ -16,6 +16,7 @@ using System.Drawing;
 using Microsoft.Win32;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text.RegularExpressions;
 
 namespace ISCP
 {
@@ -24,8 +25,10 @@ namespace ISCP
     /// </summary>
     public partial class MainWindow : Window
     {
-        EditMessageWindow editMessageWindow;
         Bitmap bitmap;
+        bool opened = false;
+        bool binary = false;
+        byte[] message;
         const uint mask = 4294967294;
 
         public MainWindow()
@@ -47,32 +50,72 @@ namespace ISCP
 
         private void buttonOpenMessageText_Click(object sender, RoutedEventArgs e)
         {
+            if (opened)
+            {
+                if (MessageBox.Show("An opened message will be lost if unsaved. Proceed?", "Message is opened", MessageBoxButton.OKCancel, MessageBoxImage.Asterisk) == MessageBoxResult.Cancel)
+                    return;
+            }
             OpenFileDialog ofd = new OpenFileDialog();
             ofd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             if (ofd.ShowDialog() == true)
-                editMessageWindow.message.Text = File.ReadAllText(ofd.FileName, Encoding.Default);
+            {
+                message = File.ReadAllBytes(ofd.FileName);
+                Regex regex = new Regex(".*(.txt)");
+                binary = !regex.IsMatch(ofd.FileName);
+                opened = true;
+            }
         }
 
         private void buttonEditMessageText_Click(object sender, RoutedEventArgs e)
         {
-            editMessageWindow.Show();
+            if (binary)
+            {
+                MessageBox.Show("Cannot edit a binary file", "Edit message", MessageBoxButton.OK, MessageBoxImage.Exclamation);
+                return;
+            }
+            EditMessageWindow editMessageWindow = new EditMessageWindow();
+            editMessageWindow.Owner = this;
+            if (opened)
+                editMessageWindow.message.Text = Encoding.Default.GetString(message);
+            if (editMessageWindow.ShowDialog() == true)
+            {
+                message = Encoding.Default.GetBytes(editMessageWindow.message.Text);
+                opened = true;
+            }
         }
 
         private void new_Click(object sender, RoutedEventArgs e)
         {
-            editMessageWindow.message.Text = "";
+            if (opened)
+            {
+                if (MessageBox.Show("An opened message will be lost if unsaved . Proceed?", "Message is opened", MessageBoxButton.OKCancel, MessageBoxImage.Asterisk) == MessageBoxResult.Cancel)
+                    return;
+            }
+            opened = false;
+            binary = false;
         }
 
         private void buttonSaveMessageText_Click(object sender, RoutedEventArgs e)
         {
+            if (opened == false)
+            {
+                MessageBox.Show("No message is opened", "Saving error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
             SaveFileDialog sfd = new SaveFileDialog();
-            sfd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
+            if (!binary)
+                sfd.Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*";
             if (sfd.ShowDialog() == true)
-                File.WriteAllText(sfd.FileName, editMessageWindow.message.Text);
+                File.WriteAllBytes(sfd.FileName, message);
         }
 
         private void buttonHideMessage_Click(object sender, RoutedEventArgs e)
         {
+            if (!opened)
+            {
+                MessageBox.Show("No message is opened", "Hiding error", MessageBoxButton.OK, MessageBoxImage.Error);
+                return;
+            }
             try
             {
                 bitmap = new Bitmap(sourceImageFileName.Text);
@@ -83,7 +126,7 @@ namespace ISCP
                 return;
             }
 
-            if (((editMessageWindow.message.Text.Length) / 16 + 1) * 128 + 8 > bitmap.Size.Height * bitmap.Size.Width)
+            if (((message.Length) / 16 + 1) * 128 + 9 > bitmap.Size.Height * bitmap.Size.Width)
             {
                 MessageBox.Show("Message is too long to fit the container!", "Not enough space", MessageBoxButton.OK, MessageBoxImage.Error);
                 return;
@@ -120,11 +163,10 @@ namespace ISCP
                 cipher.Mode = CipherMode.ECB;
                 ICryptoTransform t = cipher.CreateEncryptor();
 
-                byte[] message = Encoding.Default.GetBytes(editMessageWindow.message.Text);
                 encryptedMessage = t.TransformFinalBlock(message, 0, message.Length);
             }
 
-            byte[] bits = BytesToBits(encryptedMessage);
+            byte[] bits = BytesToBits(encryptedMessage, binary);
 
             // Hiding the message in a bitmap
             int i = 0;
@@ -141,24 +183,31 @@ namespace ISCP
             MessageBox.Show("Message has been successfully hidden", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
-        private byte[] BytesToBits(byte[] input)
+        private byte[] BytesToBits(byte[] input, bool binary)
         {
-            byte[] output = new byte[(input.Length + 2) * 8];
-            for (int i = 0; i < 16; i++)
+            byte[] output = new byte[(input.Length + 4) * 8 + 1];
+            output[0] = Convert.ToByte(binary);
+            for (int i = 0; i < 32; i++)
             {
-                int current = input.Length & Convert.ToInt32(Math.Pow(2, 15 - i % 16));
-                output[i] = current == 0 ? (byte)0 : (byte)1;
+                long current = input.Length & Convert.ToInt64(Math.Pow(2, 31 - i % 32));
+                output[i + 1] = current == 0 ? (byte)0 : (byte)1;
             }
-            for (int i = 16; i < (input.Length + 2) * 8; i++)
+            for (int i = 32; i < (input.Length + 4) * 8; i++)
             {
-                byte current = Convert.ToByte(input[(i / 8) - 2] & Convert.ToByte(Math.Pow(2, 7 - i % 8)));
-                output[i] = current == 0 ? (byte)0 : (byte)1;
+                byte current = Convert.ToByte(input[(i / 8) - 4] & Convert.ToByte(Math.Pow(2, 7 - i % 8)));
+                output[i + 1] = current == 0 ? (byte)0 : (byte)1;
             }
             return output;
         }
 
         private void buttonGetMessage_Click(object sender, RoutedEventArgs e)
         {
+            if (opened)
+            {
+                if (MessageBox.Show("An opened message will be lost if unsaved. Proceed?", "Message is opened", MessageBoxButton.OKCancel, MessageBoxImage.Asterisk) == MessageBoxResult.Cancel)
+                    return;
+            }
+            opened = true;
             try
             {
                 bitmap = new Bitmap(sourceImageFileName.Text);
@@ -197,7 +246,7 @@ namespace ISCP
 
             try
             {
-                byte[] encryptedMessage = BitsToBytes(bits);
+                byte[] encryptedMessage = BitsToBytes(bits, out binary);
 
                 using (RijndaelManaged cipher = new RijndaelManaged())
                 {
@@ -208,8 +257,8 @@ namespace ISCP
 
                     try
                     {
-                        byte[] message = t.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
-                        editMessageWindow.message.Text = Encoding.Default.GetString(message);
+                        message = t.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
+                        MessageBox.Show("Message has been successfully extracted", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     catch (CryptographicException)
                     {
@@ -223,13 +272,14 @@ namespace ISCP
             }
         }
 
-        private byte[] BitsToBytes(byte[] bits)
+        private byte[] BitsToBytes(byte[] bits, out bool binary)
         {
-            int length = 0;
-            for (int i = 0; i < 16; i++)
+            binary = Convert.ToBoolean(bits[0]);
+            long length = 0;
+            for (int i = 0; i < 32; i++)
             {
                 length <<= 1;
-                length += bits[i];
+                length += bits[i + 1];
             }
 
             byte[] res = new byte[length];
@@ -242,7 +292,7 @@ namespace ISCP
                     for (int j = 0; j < 8; j++)
                     {
                         current <<= 1;
-                        current += bits[(i + 2) * 8 + j];
+                        current += bits[(i + 4) * 8 + j + 1];
                     }
                     res[i] = current;
                 }
@@ -258,12 +308,6 @@ namespace ISCP
         {
             AboutBox aboutBox = new AboutBox();
             aboutBox.ShowDialog();
-        }
-
-        private void Window_Loaded(object sender, RoutedEventArgs e)
-        {
-            editMessageWindow = new EditMessageWindow();
-            editMessageWindow.Owner = this;
         }
     }
 }
