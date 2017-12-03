@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ISCP"
         mc:Ignorable="d"
-        Title="Message Editor" Height="300" Width="300">
+        Title="Message Editor" Height="300" Width="400">
     <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Bottom" HorizontalAlignment="Right" Orientation="Horizontal" MinHeight="30">
             <Button x:Name="OK" Content="OK" Margin="3" MinWidth="65" Click="OK_Click"/>

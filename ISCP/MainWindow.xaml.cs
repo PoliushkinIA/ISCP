@@ -34,6 +34,7 @@ namespace ISCP
         public MainWindow()
         {
             InitializeComponent();
+            System.Windows.Forms.Application.EnableVisualStyles();
         }
 
         private void quit_Click(object sender, RoutedEventArgs e)
