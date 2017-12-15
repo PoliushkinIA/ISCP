@@ -208,7 +208,6 @@ namespace ISCP
                 if (MessageBox.Show("An opened message will be lost if unsaved. Proceed?", "Message is opened", MessageBoxButton.OKCancel, MessageBoxImage.Asterisk) == MessageBoxResult.Cancel)
                     return;
             }
-            opened = true;
             try
             {
                 bitmap = new Bitmap(sourceImageFileName.Text);
@@ -259,6 +258,7 @@ namespace ISCP
                     try
                     {
                         message = t.TransformFinalBlock(encryptedMessage, 0, encryptedMessage.Length);
+                        opened = true;
                         MessageBox.Show("Message has been successfully extracted", "Success", MessageBoxButton.OK, MessageBoxImage.Information);
                     }
                     catch (CryptographicException)
