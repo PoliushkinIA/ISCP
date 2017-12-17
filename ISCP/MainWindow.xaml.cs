@@ -283,6 +283,8 @@ namespace ISCP
                 length += bits[i + 1];
             }
 
+            if (length <=0 || length > bitmap.Height * bitmap.Width)
+                throw new ArgumentException();
             byte[] res = new byte[length];
 
             try
